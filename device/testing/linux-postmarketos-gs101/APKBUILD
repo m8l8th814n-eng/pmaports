@@ -1,6 +1,6 @@
 maintainer="Ingo Reitz <9l@9lo.re>"
 pkgname=linux-postmarketos-gs101
-pkgver=7.0.6
+pkgver=7.2.0_rc3
 pkgrel=0
 pkgdesc="Google gs101 (Pixel 6 Series) close-to-mainline kernel"
 arch="aarch64"
@@ -19,6 +19,7 @@ makedepends="
 	lz4
 	openssl-dev
 	perl
+	python3
 	zstd
 "
 
@@ -28,19 +29,113 @@ _config="config-$_flavor.$arch"
 source="
 	$pkgname-$_commit.tar.gz::https://github.com/gs101-mainline/linux/archive/$_commit.tar.gz
 	$_config
+	0001-drm-panfrost-add-Mali-G78-gs101-GPU-ID-0x9202.patch
 "
 builddir="$srcdir/linux-$_commit"
 _outdir="out"
 
+_aoc_config="
+	CONFIG_WC_MBOX=m
+	CONFIG_AOC_DRIVER=m
+	CONFIG_AOC_CHAR_DRIVER=m
+	CONFIG_AOC_CONTROL_DRIVER=m
+	CONFIG_AOC_CHAN_DRIVER=m
+"
+
+# gs101 declares "samsung,sysmmu-v8" throughout its device tree; the v9
+# driver is for gs201/zuma and is not built.
+_gsa_config="
+	CONFIG_GSA=m
+"
+
+_edgetpu_config="
+	CONFIG_EDGETPU_FRAMEWORK=m
+	CONFIG_ABROLHOS=m
+"
+
+_iommu_config="
+	CONFIG_SAMSUNG_IOMMU=m
+	CONFIG_SAMSUNG_IOMMU_GROUP=m
+"
+
+# WIP DECON skeleton. Lives in the kernel tree proper, so unlike the
+# out-of-tree modules above it needs its symbol in the config, not on the
+# make command line.
+_decon_config="CONFIG_DRM_GS101=m
+CONFIG_DRM_SIMPLEDRM=n"
+
+# ST21NFC on USI7, driven by mainline's st-nci. NFC and NFC_NCI are already
+# modules in the base config; only the ST transport is missing.
+_nfc_config="CONFIG_NFC_ST_NCI=m
+CONFIG_NFC_ST_NCI_I2C=m"
+
 prepare() {
 	default_prepare
 	cp "$srcdir/config-$_flavor.$CARCH" .config
+
+	# Migrate the config to the kernel version in $builddir. Must use LLVM=1
+	# like build()/package(), else clang-only symbols (CFI_CLANG,
+	# SHADOW_CALL_STACK, LTO_CLANG_*) get silently dropped.
+	unset LDFLAGS
+
+	# Append before olddefconfig so dependencies get resolved.
+	echo "$_decon_config" >> .config
+	echo "$_nfc_config" >> .config
+
+	make ARCH="$_carch" LLVM=1 olddefconfig
+
+	if ! grep -q "^CONFIG_DRM_GS101=" .config; then
+		error "CONFIG_DRM_GS101 was dropped by olddefconfig"
+		return 1
+	fi
+
+	if ! grep -q "^# CONFIG_DRM_SIMPLEDRM is not set" .config; then
+		error "CONFIG_DRM_SIMPLEDRM survived olddefconfig"
+		return 1
+	fi
 }
 
 build() {
 	unset LDFLAGS
 	make ARCH="$_carch" LLVM=1 \
 		KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-postmarketOS"
+
+	if [ -d "$builddir/bcmdhd" ]; then
+		make -C "$builddir" M="$builddir/bcmdhd" \
+			BCMDHD_ROOT="$builddir/bcmdhd" modules \
+			ARCH="$_carch" LLVM=1
+	fi
+
+	if [ -d "$builddir/gsa" ]; then
+		make -C "$builddir" M="$builddir/gsa" modules \
+			ARCH="$_carch" LLVM=1 \
+			$_gsa_config
+	fi
+
+	# AoC (Always-on Compute) coprocessor: audio lives behind it. The
+	# CONFIG_AOC_* symbols are passed on the command line because aoc/Kconfig
+	# is not sourced from the main kernel Kconfig tree. AoC calls into GSA,
+	# so it needs GSA's symbols and GSA has to be built first.
+	if [ -d "$builddir/aoc" ]; then
+		make -C "$builddir" M="$builddir/aoc" modules \
+			ARCH="$_carch" LLVM=1 \
+			KBUILD_EXTRA_SYMBOLS="$builddir/gsa/Module.symvers" \
+			$_aoc_config
+	fi
+
+	if [ -d "$builddir/edgetpu" ]; then
+		make -C "$builddir" M="$builddir/edgetpu" modules \
+			ARCH="$_carch" LLVM=1 \
+			KBUILD_EXTRA_SYMBOLS="$builddir/gsa/Module.symvers" \
+			$_edgetpu_config
+	fi
+
+	# Samsung SysMMU v9. AoC cannot get an iommu domain without it.
+	if [ -d "$builddir/samsung-iommu" ]; then
+		make -C "$builddir" M="$builddir/samsung-iommu" modules \
+			ARCH="$_carch" LLVM=1 \
+			$_iommu_config
+	fi
 }
 
 package() {
@@ -53,6 +148,41 @@ package() {
 		INSTALL_MOD_PATH="$pkgdir"/usr \
 		INSTALL_MOD_STRIP=1 \
 		INSTALL_DTBS_PATH="$pkgdir"/boot/dtbs
+
+	if [ -d "$builddir/bcmdhd" ]; then
+		make -C "$builddir" M="$builddir/bcmdhd" \
+			BCMDHD_ROOT="$builddir/bcmdhd" modules_install \
+			ARCH="$_carch" LLVM=1 \
+			INSTALL_MOD_PATH="$pkgdir"/usr INSTALL_MOD_STRIP=1
+	fi
+
+	if [ -d "$builddir/gsa" ]; then
+		make -C "$builddir" M="$builddir/gsa" modules_install \
+			ARCH="$_carch" LLVM=1 \
+			$_gsa_config \
+			INSTALL_MOD_PATH="$pkgdir"/usr INSTALL_MOD_STRIP=1
+	fi
+
+	if [ -d "$builddir/edgetpu" ]; then
+		make -C "$builddir" M="$builddir/edgetpu" modules_install \
+			ARCH="$_carch" LLVM=1 \
+			$_edgetpu_config \
+			INSTALL_MOD_PATH="$pkgdir"/usr INSTALL_MOD_STRIP=1
+	fi
+
+	if [ -d "$builddir/aoc" ]; then
+		make -C "$builddir" M="$builddir/aoc" modules_install \
+			ARCH="$_carch" LLVM=1 \
+			$_aoc_config \
+			INSTALL_MOD_PATH="$pkgdir"/usr INSTALL_MOD_STRIP=1
+	fi
+
+	if [ -d "$builddir/samsung-iommu" ]; then
+		make -C "$builddir" M="$builddir/samsung-iommu" modules_install \
+			ARCH="$_carch" LLVM=1 \
+			$_iommu_config \
+			INSTALL_MOD_PATH="$pkgdir"/usr INSTALL_MOD_STRIP=1
+	fi
 	rm -f "$pkgdir"/lib/modules/*/build "$pkgdir"/lib/modules/*/source
 
 	install -D "$builddir"/include/config/kernel.release \
@@ -64,5 +194,6 @@ package() {
 
 sha512sums="
 4d4a5568d3cc4c6ee957893a1168dd72274715e2491a19fcf314dcdf2fd5a466a088f2c4ca5d54578c68677f3899724643e07ac3f8fb1ee5fbe97f0c4c12dc91  linux-postmarketos-gs101-d28cfa4275b95e93f4b7a1e743de31b723bd21b8.tar.gz
-d8444741931ca26cdca20c959a3563eea777f6e3d2d378aeba9851fdb98adab8de2dd6b1466b61e49a9d89712ba7b066fb21a1b9e0a56e171507993b656ef6f6  config-postmarketos-gs101.aarch64
+9261e35d68382f9bfc4d544d598b678221b4f9892f8b4285e482022e054ce4f786f3ba0c037b28f638e237afe05ebf1e7bbeb8afd98442aac46f0e8a56f3bc72  config-postmarketos-gs101.aarch64
+579209a9e00ea5e9503a6ec360b1e3d3388bb8363f2674228129a413dc796a93af1a7ee8760324c0be8f396d576f247915e8d07112350ee1100e33630dcfcee9  0001-drm-panfrost-add-Mali-G78-gs101-GPU-ID-0x9202.patch
 "
