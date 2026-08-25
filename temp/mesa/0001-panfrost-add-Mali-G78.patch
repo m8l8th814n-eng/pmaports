@@ -1,0 +1,55 @@
+From 64383dffe16d0296dad024c9cd67ed385653107b Mon Sep 17 00:00:00 2001
+From: Simon <m8l8th814n@gmail.com>
+Date: Mon, 24 Aug 2026 19:08:23 +0200
+Subject: [PATCH] panfrost: add Mali-G78 and disable transaction elimination on
+ it
+
+---
+ src/gallium/drivers/panfrost/pan_resource.c | 3 +++
+ src/panfrost/model/pan_model.c              | 3 +++
+ src/panfrost/model/pan_model.h              | 1 +
+ 3 files changed, 7 insertions(+)
+
+diff --git a/src/gallium/drivers/panfrost/pan_resource.c b/src/gallium/drivers/panfrost/pan_resource.c
+index 178b7b8..1bdce75 100644
+--- a/src/gallium/drivers/panfrost/pan_resource.c
++++ b/src/gallium/drivers/panfrost/pan_resource.c
+@@ -797,6 +797,9 @@ panfrost_should_checksum(const struct panfrost_device *dev,
+    unsigned bytes_per_pixel = MAX2(pres->base.nr_samples, 1) *
+                               util_format_get_blocksize(pres->base.format);
+ 
++   if (dev->model->quirks.no_crc)
++      return false;
++
+    return pres->base.bind & PIPE_BIND_RENDER_TARGET && panfrost_is_2d(pres) &&
+           bytes_per_pixel <= bytes_per_pixel_max &&
+           !(dev->debug & PAN_DBG_NO_CRC);
+diff --git a/src/panfrost/model/pan_model.c b/src/panfrost/model/pan_model.c
+index 7e64674..0415066 100644
+--- a/src/panfrost/model/pan_model.c
++++ b/src/panfrost/model/pan_model.c
+@@ -85,6 +85,9 @@ const struct pan_model pan_model_list[] = {
+                                               MODEL_RATES_X(2, 4, 8,  32,  32, 8)),
+    VALHALL_MODEL(PAN_PROD_ID(9, 0, 3), 0, "G57",    "G77", MODEL_ANISO(ALL),  MODEL_TB_SIZES(16384,  8192),
+                                               MODEL_RATES_X(2, 4, 8,  32,  32, 8)),
++   VALHALL_MODEL(PAN_PROD_ID(9, 2, 2), 0, "G78",    "G78", MODEL_ANISO(ALL),  MODEL_TB_SIZES(16384,  8192),
++                                              MODEL_RATES_X(2, 4, 8,  32,  32, 8),
++                                              MODEL_QUIRKS( .no_crc = true )),
+    VALHALL_MODEL(PAN_PROD_ID(9, 2, 4), 0, "G68",    "G78", MODEL_ANISO(ALL),  MODEL_TB_SIZES(16384,  8192),
+                                               MODEL_RATES_X(2, 4, 8,  32,  32, 8)),
+    VALHALL_MODEL(PAN_PROD_ID(10, 8, 7), 0, "G610",   "G710", MODEL_ANISO(ALL),  MODEL_TB_SIZES(32768, 16384),
+diff --git a/src/panfrost/model/pan_model.h b/src/panfrost/model/pan_model.h
+index 3858b73..e201bfb 100644
+--- a/src/panfrost/model/pan_model.h
++++ b/src/panfrost/model/pan_model.h
+@@ -88,6 +88,7 @@ struct pan_model {
+        */
+       bool no_hierarchical_tiling;
+       bool max_4x_msaa;
++      bool no_crc;
+    } quirks;
+ };
+ 
+-- 
+2.55.0
+

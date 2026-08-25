@@ -58,16 +58,46 @@ _iommu_config="
 	CONFIG_SAMSUNG_IOMMU_GROUP=m
 "
 
+# Samsung s5123 modem (cpif). The modem hangs off PCIe channel 0 and is
+# booted over SPI bus 9, so nothing appears on the bus until this driver
+# releases it from reset. Trimmed: DIT, BTL, the throughput monitor,
+# direct DM and the vendor hooks are all left out of modem/Kbuild.
+_modem_config="
+	CONFIG_EXYNOS_MODEM_IF=m
+	CONFIG_SHM_IPC=m
+	CONFIG_BOOT_DEVICE_SPI=m
+	CONFIG_SEC_MODEM_S5100=y
+	CONFIG_LINK_DEVICE_PCIE=y
+	CONFIG_LINK_DEVICE_WITH_SBD_ARCH=y
+	CONFIG_CP_PKTPROC=y
+	CONFIG_CP_PKTPROC_UL=y
+"
+
 # WIP DECON skeleton. Lives in the kernel tree proper, so unlike the
 # out-of-tree modules above it needs its symbol in the config, not on the
 # make command line.
 _decon_config="CONFIG_DRM_GS101=m
-CONFIG_DRM_SIMPLEDRM=n"
+CONFIG_DRM_PANEL_SAMSUNG_S6E3FC3=m
+CONFIG_DRM_SIMPLEDRM=n
+CONFIG_FRAMEBUFFER_CONSOLE_DEFERRED_TAKEOVER=y"
 
 # ST21NFC on USI7, driven by mainline's st-nci. NFC and NFC_NCI are already
 # modules in the base config; only the ST transport is missing.
 _nfc_config="CONFIG_NFC_ST_NCI=m
 CONFIG_NFC_ST_NCI_I2C=m"
+
+# console=null leaves a hang with nothing to look at. Route every printk into
+# the ramoops buffer instead, built in rather than modular so it is armed from
+# early boot, and read it back from /sys/fs/pstore after the next boot.
+# The default 10s window closes before udev gets to the out-of-tree modules --
+# switch_root alone lands at ~14s here -- so aoc, abrolhos and friends probe
+# with their suppliers unfinished and silently swallow the -EPROBE_DEFER.
+_probe_config="CONFIG_DRIVER_DEFERRED_PROBE_TIMEOUT=30"
+
+_pstore_config="CONFIG_PSTORE=y
+CONFIG_PSTORE_RAM=y
+CONFIG_PSTORE_CONSOLE=y
+CONFIG_PSTORE_DEFLATE_COMPRESS=y"
 
 prepare() {
 	default_prepare
@@ -81,6 +111,8 @@ prepare() {
 	# Append before olddefconfig so dependencies get resolved.
 	echo "$_decon_config" >> .config
 	echo "$_nfc_config" >> .config
+	echo "$_pstore_config" >> .config
+	echo "$_probe_config" >> .config
 
 	make ARCH="$_carch" LLVM=1 olddefconfig
 
@@ -136,6 +168,12 @@ build() {
 			ARCH="$_carch" LLVM=1 \
 			$_iommu_config
 	fi
+
+	if [ -d "$builddir/modem" ]; then
+		make -C "$builddir" M="$builddir/modem" modules \
+			ARCH="$_carch" LLVM=1 \
+			$_modem_config
+	fi
 }
 
 package() {
@@ -181,6 +219,13 @@ package() {
 		make -C "$builddir" M="$builddir/samsung-iommu" modules_install \
 			ARCH="$_carch" LLVM=1 \
 			$_iommu_config \
+			INSTALL_MOD_PATH="$pkgdir"/usr INSTALL_MOD_STRIP=1
+	fi
+
+	if [ -d "$builddir/modem" ]; then
+		make -C "$builddir" M="$builddir/modem" modules_install \
+			ARCH="$_carch" LLVM=1 \
+			$_modem_config \
 			INSTALL_MOD_PATH="$pkgdir"/usr INSTALL_MOD_STRIP=1
 	fi
 	rm -f "$pkgdir"/lib/modules/*/build "$pkgdir"/lib/modules/*/source
