@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: CC0-1.0
+#
+# gs101 (Pixel 6) IMX386 rear ultra-wide camera, libcamera software-ISP tuning.
+# Uncalibrated: black level ~0 (do not lift); grey-world AWB + AGC, no CCM
+# (a real CCM needs per-sensor calibration; the borrowed s5kjn1 matrix gave
+# rainbow rings on the 8-bit clipped highlights).
+%YAML 1.1
+---
+version: 1
+algorithms:
+  - BlackLevel:
+      blackLevel: 0
+  - Awb:
+  - Agc:
+...

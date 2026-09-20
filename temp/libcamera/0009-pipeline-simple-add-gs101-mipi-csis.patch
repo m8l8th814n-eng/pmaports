@@ -1,0 +1,17 @@
+From: postmarketOS gs101 port
+Subject: [PATCH] pipeline: simple: enable gs101-mipi-csis (Tensor/Pixel 6)
+
+The gs101 (Google Tensor) MIPI-CSIS receiver exposes raw Bayer capture
+video nodes with no hardware converter, so route it through the simple
+pipeline handler with the Software ISP for debayering.
+
+--- a/src/libcamera/pipeline/simple/simple.cpp
++++ b/src/libcamera/pipeline/simple/simple.cpp
+@@ -257,6 +257,7 @@
+ 
+ static const SimplePipelineInfo supportedDevices[] = {
+ 	{ "dcmipp", {}, false },
++	{ "gs101-mipi-csis", {}, true },
+ 	{ "imx7-csi", { { "pxp", 1 } }, true },
+ 	{ "intel-ipu6", {}, true },
+ 	{ "intel-ipu7", {}, true },

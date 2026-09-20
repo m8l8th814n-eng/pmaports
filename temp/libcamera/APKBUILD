@@ -3,13 +3,14 @@ maintainer="Robert Mader <robert.mader@collabora.com>"
 pkgname=libcamera
 _pkgver=0.7.2
 pkgver=9999$_pkgver
-pkgrel=1
+pkgrel=7
 pkgdesc="Linux camera framework"
 url="https://libcamera.org/"
 arch="all"
 license="LGPL-2.1-or-later AND GPL-2.0-or-later"
 # upstream calls 'date' with a non-POSIX option so we pull in coreutils
 makedepends="
+	clang
 	coreutils
 	doxygen
 	eudev-dev
@@ -48,10 +49,12 @@ subpackages="
 _tuning_files="
 	hi846.yaml
 	imx355.yaml
+	imx386.yaml
 	imx363.yaml
 	imx371.yaml
 	imx376.yaml
 	imx519.yaml
+	imx800.yaml
 	imx858.yaml
 	s5k3l6xx.yaml
 	s5kjn1.yaml
@@ -59,6 +62,13 @@ _tuning_files="
 source="https://gitlab.freedesktop.org/camera/libcamera/-/archive/v$_pkgver/libcamera-v$_pkgver.tar.gz
 	0001-libcamera-simple-Enable-softISP-for-the-Pinephone.patch
 	0002-libcamera-simple-Skip-hwISP-formats-if-swISP-is-acti.patch
+	0003-software_isp-debayer_egl-Re-add-log-for-failing-DMAB.patch
+	0004-ipa-simple-Derive-AGC-minimum-gain-step-from-sensor-.patch
+	0005-debayer-Further-demote-Unsupported-input-format-log.patch
+	0006-debayer_egl-Use-untransposed-matrix-to-fix-GLES-2.0.patch
+	0007-simple-Limit-swISP-output-sizes.patch
+	0008-libcamera-Add-quad-Bayer-CFA-layout-support.patch
+	0009-pipeline-simple-add-gs101-mipi-csis.patch
 	qcam.desktop
 	$_tuning_files
 	"
@@ -84,6 +94,8 @@ ppc64le|s390x|riscv64|loongarch64)
 esac
 
 build() {
+	# gs101 port: build with clang like the kernel (the buildroot gcc has no cc1)
+	export CC=clang CXX=clang++
 	abuild-meson \
 		-Dpipelines=auto,virtual \
 		-Dv4l2=true \
@@ -172,15 +184,24 @@ py3() {
 
 sha512sums="
 b317cdc96f61682ee0bf26dfb7c4d6441db9a9c5b93ab53528121a8cd44862b3d59cbaa3881bb0837e3e381564c184c7b742124aef4267eea754c6083de353c1  libcamera-v0.7.2.tar.gz
-eef5e38efc874f2049d17f08b04d9f21c3e4616f66873358cd2c446e651f78d6952ae25ee13a6ef917e3f85bc7b6a6991152e42c8efd8c7f5bff69829a518826  0001-libcamera-simple-Enable-softISP-for-the-Pinephone.patch
-191dfa09cfd08bcdf0d0d07410d17af590cf78b8bc8f8b7587fd2dc1c645a9ca07f2926b5d98381c011319b1f4e1d6195dd0d6dba65fd8c723882e6be0d6117d  0002-libcamera-simple-Skip-hwISP-formats-if-swISP-is-acti.patch
+c6e4d44758bc3afa639d5dfa30113e92270094f1dca8505982e85629ff88fab890ec3f14098600bdf7498259becea4bdadbff117aa96b8bc0a043ffeb4fb2f4f  0001-libcamera-simple-Enable-softISP-for-the-Pinephone.patch
+1a84267c138192f3999b870985030b0cf9bf0b61b911481bdef73d6a377bea4159f438a21180db87c3ff97c9da9f00fb0885cfedde828f4237d0ce03196d6ed7  0002-libcamera-simple-Skip-hwISP-formats-if-swISP-is-acti.patch
+e90c6c742a594e6af2efec8b9ce7cf133ed294645840f72a07408eabc010e50192462a653ef6e43b4558c9390ac516d0eefbc606691da55e604f5d20f871a0db  0003-software_isp-debayer_egl-Re-add-log-for-failing-DMAB.patch
+6159dc60692382a712c683fa63bb131bd1d4978e1e639b90940ae5f340ac396d1f9b1abfb9b450cf29c0e484018af3f80e87cc9a4b7b4e856038bd4154bdab2c  0004-ipa-simple-Derive-AGC-minimum-gain-step-from-sensor-.patch
+de5fd287fea2c71754beb7d72a6fd739a94ec7a47ed3ea09a60130bee1c08efdcf94e12b1830914e7e498b0d80a0cb4550a614aeb899129fba9d4f06918f5c63  0005-debayer-Further-demote-Unsupported-input-format-log.patch
+875788a4571ec8485f17b0abf9681238acdf3c92a1152363d4416d68e171eb7a9231dd51b59b9f56e2815f6e81bbb33fbde5419e3b9b15e1963800ebe6eddb14  0006-debayer_egl-Use-untransposed-matrix-to-fix-GLES-2.0.patch
+ac4e3c742fde4f8e4775bd2afbaaecb18fa49b869eb4309032bae985680f97443353eb384de19a9b588b632bb1711f82c318e0431214afe09068910b2e901252  0007-simple-Limit-swISP-output-sizes.patch
+2b8ee82c974a0a54279700c70dc8973038f5e1b517cade87872319d5f0b5aa9be6df0a827a9098da3fb498238b1fe080419e9950e34def0edadca0247794f269  0008-libcamera-Add-quad-Bayer-CFA-layout-support.patch
+c0c5faf136dfa946d9d2510dc8377b77da793e03f5e40ce5e58806af461458922fdce8536d628fbc6f7f310aa032c70d8eb81a90e45f008a9fc1fed3a146f3e5  0009-pipeline-simple-add-gs101-mipi-csis.patch
 22167a4eceb6d1b40b0b7c45fdf116c71684f5340de7f767535cb8e160ad9d2ae0f00cb3d461f73a344520a48a4641cf46226841d78bee06bfbfd2a91337f754  qcam.desktop
 2ee566653b17d565d2c0de67cbe6ebad25df5aac6051cad78e6bae52016fa2ca0247e964d735ac776b3e0bd447ead9c4fcb26cd7629228cdba3ceb91b46f378f  hi846.yaml
-55dab9dcb9b1982143b9d63e4e51138c5bffd7c8f4a8e4e122750b3ad9d475446956bc297d9f564819ade4be75a575d06633a064e14f8ba3ef77986783c5f067  imx355.yaml
+4942edd551dcf51630246f71e600c17760d3574d5d45e5530d6cfeefe2c9ab1a812fbe220f8e89d92e19a499c592b2507c801ca4eb74cd15fcecb60bff5c650b  imx355.yaml
+650a6b4f92c038ebcc633e8ba100abf467cc765f290a0d81d81b421af3390568302f160768a543c952fb2be959e15fb15119b1895a38deda4176faab55637145  imx386.yaml
 285c6d0d712df341c0117c3762ddc139f53f44e6be36c3388d1a62696429175e2916f392163131e21f410c3676f02f5d125f375171f45f8d82ad278aa5076c62  imx363.yaml
 2ee566653b17d565d2c0de67cbe6ebad25df5aac6051cad78e6bae52016fa2ca0247e964d735ac776b3e0bd447ead9c4fcb26cd7629228cdba3ceb91b46f378f  imx371.yaml
 55dab9dcb9b1982143b9d63e4e51138c5bffd7c8f4a8e4e122750b3ad9d475446956bc297d9f564819ade4be75a575d06633a064e14f8ba3ef77986783c5f067  imx376.yaml
 2ee566653b17d565d2c0de67cbe6ebad25df5aac6051cad78e6bae52016fa2ca0247e964d735ac776b3e0bd447ead9c4fcb26cd7629228cdba3ceb91b46f378f  imx519.yaml
+55dab9dcb9b1982143b9d63e4e51138c5bffd7c8f4a8e4e122750b3ad9d475446956bc297d9f564819ade4be75a575d06633a064e14f8ba3ef77986783c5f067  imx800.yaml
 55dab9dcb9b1982143b9d63e4e51138c5bffd7c8f4a8e4e122750b3ad9d475446956bc297d9f564819ade4be75a575d06633a064e14f8ba3ef77986783c5f067  imx858.yaml
 2ee566653b17d565d2c0de67cbe6ebad25df5aac6051cad78e6bae52016fa2ca0247e964d735ac776b3e0bd447ead9c4fcb26cd7629228cdba3ceb91b46f378f  s5k3l6xx.yaml
 d59020e62520ee622282c85ce7bcdfe453c99becf48cc1005c5f8a4bb8b2511b19c89f38fb3c994e7c6a79d1f84e2ed5f5a09b4c5bdc1dc4a44b071dbccf0d44  s5kjn1.yaml
