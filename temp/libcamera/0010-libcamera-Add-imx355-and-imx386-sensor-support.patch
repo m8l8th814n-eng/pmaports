@@ -1,0 +1,77 @@
+From: Simon <m8l8th814n@gmail.com>
+Date: Sun, 20 Sep 2026 20:10:00 +0200
+Subject: [PATCH 10/10] libcamera: Add imx355 and imx386 sensor support for gs101
+
+imx355 (Pixel 6 front) is a Quad Bayer sensor whose full-resolution
+stream carries 2x2 same-colour cells: describe it like imx371 so the
+software ISP collapses the cells. Add camera sensor helpers for imx355 and
+imx386 (Sony analogue gain 1024 / (1024 - code), black level 0x40 at
+10 bits) and their static properties, which the software ISP AGC needs.
+---
+diff --git a/include/libcamera/internal/sensor_cfa_layout.h b/include/libcamera/internal/sensor_cfa_layout.h
+--- a/include/libcamera/internal/sensor_cfa_layout.h
++++ b/include/libcamera/internal/sensor_cfa_layout.h
+@@ -36,6 +36,8 @@
+ 	 */
+ 	if (model == "imx371")
+ 		return { { 2, 2 }, { 2, 2 } };
++	if (model == "imx355")
++		return { { 2, 2 }, { 2, 2 } };
+ 	if (model == "imx708" || model == "imx708_wide" ||
+ 	    model == "imx708_noir" || model == "imx708_wide_noir")
+ 		return { { 2, 2 }, { 1, 1 } };
+diff --git a/src/ipa/libipa/camera_sensor_helper.cpp b/src/ipa/libipa/camera_sensor_helper.cpp
+--- a/src/ipa/libipa/camera_sensor_helper.cpp
++++ b/src/ipa/libipa/camera_sensor_helper.cpp
+@@ -617,6 +617,31 @@
+ };
+ REGISTER_CAMERA_SENSOR_HELPER("imx335", CameraSensorHelperImx335)
+ 
++class CameraSensorHelperImx355 : public CameraSensorHelper
++{
++public:
++	CameraSensorHelperImx355()
++	{
++		/* 0x40 at 10 bits, as the upstream imx355 tuning file assumes. */
++		blackLevel_ = 4096;
++		/* Sony analogue gain code, 1024 / (1024 - code); kernel driver max 960 = 16x. */
++		gain_ = AnalogueGainLinear{ 0, 1024, -1, 1024 };
++	}
++};
++REGISTER_CAMERA_SENSOR_HELPER("imx355", CameraSensorHelperImx355)
++
++class CameraSensorHelperImx386 : public CameraSensorHelper
++{
++public:
++	CameraSensorHelperImx386()
++	{
++		/* Same register semantics as imx355 in the kernel driver (ANA_GAIN_MAX 960). */
++		blackLevel_ = 4096;
++		gain_ = AnalogueGainLinear{ 0, 1024, -1, 1024 };
++	}
++};
++REGISTER_CAMERA_SENSOR_HELPER("imx386", CameraSensorHelperImx386)
++
+ class CameraSensorHelperImx415 : public CameraSensorHelper
+ {
+ public:
+diff --git a/src/libcamera/sensor/camera_sensor_properties.cpp b/src/libcamera/sensor/camera_sensor_properties.cpp
+--- a/src/libcamera/sensor/camera_sensor_properties.cpp
++++ b/src/libcamera/sensor/camera_sensor_properties.cpp
+@@ -261,6 +261,16 @@
+ 			.testPatternModes = {},
+ 			.sensorDelays = { },
+ 		} },
++		{ "imx355", {
++			.unitCellSize = { 1120, 1120 },
++			.testPatternModes = {},
++			.sensorDelays = { },
++		} },
++		{ "imx386", {
++			.unitCellSize = { 1250, 1250 },
++			.testPatternModes = {},
++			.sensorDelays = { },
++		} },
+ 		{ "imx415", {
+ 			.unitCellSize = { 1450, 1450 },
+ 			.testPatternModes = {},
