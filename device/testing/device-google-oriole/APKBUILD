@@ -2,7 +2,7 @@ maintainer="Ingo Reitz <9l@9lo.re>"
 pkgname=device-google-oriole
 pkgdesc="Google Pixel 6"
 pkgver=6
-pkgrel=0
+pkgrel=1
 url="https://postmarketos.org"
 license="MIT"
 arch="aarch64"
@@ -18,6 +18,7 @@ source="
 	deviceinfo
 	kernel-cmdline.conf
 	modules-initfs
+	aoc-trusty.conf
 "
 
 build() {
@@ -26,10 +27,15 @@ build() {
 
 package() {
 	devicepkg_package $startdir $pkgname
+
+	# Trusty stack load order before aoc_core (secure-world bring-up for AoC).
+	install -Dm644 "$srcdir"/aoc-trusty.conf \
+		"$pkgdir"/etc/modprobe.d/aoc-trusty.conf
 }
 
 sha512sums="
 7f52c3a5d477d648dca32d4aad61e62fb625598f15a1fb254975ac5f15fe94a99783517952ddf416427e494c012e466c7033245f958656ee5e27b7117f5dc8d7  deviceinfo
-f55283ae5387b229cd3f6fe400795f87a84f45f025673c053d3086a3fa7a776f8a446b0873bf97a45062eae024b3cf6380db5e37b91bfa49f02b5d41107af0c0  kernel-cmdline.conf
+546a502a8983f1ad37e11aed14cefea5e86f9bd6e9eb70fdac79658f10d6973476ae61b484421a737c89d3e2930c1d30d0b742daf2cd518e7388d63563ccb376  kernel-cmdline.conf
 a5171dc7a4221a5a63c02820bac1e372c557cee72db9f777099f67eb272595fad6019f876cb47dd1bf455eeb3a45a74f215f2e8c44a6e1bf7cf3d7d9f49d98ad  modules-initfs
+790fc9683faeb6e4776d319614ab94975809454d2ee4042e195b3f2f8a815199b05d9e81ba0bd5e29832e246e4cd51508ffa45c2a0625dd42e1fbd7d7bf6b645  aoc-trusty.conf
 "
