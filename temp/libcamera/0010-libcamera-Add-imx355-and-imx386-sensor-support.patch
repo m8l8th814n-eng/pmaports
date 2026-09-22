@@ -2,24 +2,12 @@ From: Simon <m8l8th814n@gmail.com>
 Date: Sun, 20 Sep 2026 20:10:00 +0200
 Subject: [PATCH 10/10] libcamera: Add imx355 and imx386 sensor support for gs101
 
-imx355 (Pixel 6 front) is a Quad Bayer sensor whose full-resolution
-stream carries 2x2 same-colour cells: describe it like imx371 so the
-software ISP collapses the cells. Add camera sensor helpers for imx355 and
-imx386 (Sony analogue gain 1024 / (1024 - code), black level 0x40 at
-10 bits) and their static properties, which the software ISP AGC needs.
+Add camera sensor helpers for imx355 (Pixel 6 front) and imx386 (rear
+ultra-wide): Sony analogue gain 1024 / (1024 - code), black level 0x40 at
+10 bits, and their static properties, which the software ISP AGC needs.
+Both are ordinary Bayer sensors (the quad-Bayer entry for imx355 gave a
+green cell-collapsed image and is gone, pkgrel 9).
 ---
-diff --git a/include/libcamera/internal/sensor_cfa_layout.h b/include/libcamera/internal/sensor_cfa_layout.h
---- a/include/libcamera/internal/sensor_cfa_layout.h
-+++ b/include/libcamera/internal/sensor_cfa_layout.h
-@@ -36,6 +36,8 @@
- 	 */
- 	if (model == "imx371")
- 		return { { 2, 2 }, { 2, 2 } };
-+	if (model == "imx355")
-+		return { { 2, 2 }, { 2, 2 } };
- 	if (model == "imx708" || model == "imx708_wide" ||
- 	    model == "imx708_noir" || model == "imx708_wide_noir")
- 		return { { 2, 2 }, { 1, 1 } };
 diff --git a/src/ipa/libipa/camera_sensor_helper.cpp b/src/ipa/libipa/camera_sensor_helper.cpp
 --- a/src/ipa/libipa/camera_sensor_helper.cpp
 +++ b/src/ipa/libipa/camera_sensor_helper.cpp
