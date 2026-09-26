@@ -5020,6 +5020,7 @@ CONFIG_BCM_SR_THERMAL=y
 # Samsung thermal drivers
 #
 CONFIG_EXYNOS_THERMAL=y
+CONFIG_TENSOR_TMU=m
 # end of Samsung thermal drivers
 
 #
