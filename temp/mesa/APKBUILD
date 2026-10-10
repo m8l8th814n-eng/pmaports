@@ -2,7 +2,7 @@
 maintainer="team/alpine-desktop <achill@achill.org>"
 pkgname=mesa
 pkgver=26.3.0_git20260825
-pkgrel=0
+pkgrel=3
 _commit="dc330577adb9e98363ef6061e09062f171d0d053"
 pkgdesc="Mesa DRI OpenGL library"
 url="https://www.mesa3d.org"
@@ -19,7 +19,7 @@ subpackages="
 	$pkgname-vulkan-swrast:_vulkan
 	$pkgname-vulkan-layers:_vulkan_layers
 	"
-_llvmver=22
+_llvmver=23
 depends_dev="
 	libdrm-dev
 	libxdamage-dev
@@ -78,7 +78,8 @@ source="mesa-$pkgver.tar.gz::https://gitlab.freedesktop.org/mesa/mesa/-/archive/
 	rustc-hash-$_rustc_hash_version.tar.gz::https://static.crates.io/crates/rustc-hash/rustc-hash-$_rustc_hash_version.crate
 	23575.patch
 	riscv64-tls.patch
-	0001-panfrost-add-Mali-G78.patch
+	mesa-main-panfrost-g78.patch
+	mesa-main-panvk-v9.patch
 	"
 builddir="$srcdir/mesa-$_commit"
 options="!check" # TODO
@@ -429,5 +430,6 @@ bc1824e1e4452a40732fc69874d7e1a66f7803717a314790dcf48867eba34bc9441331ef031e3869
 87097d98d47f327d000041ab13acddc366f1500d9c3e5c82169c3358112c7a7c03701c9b3c2c81d9f9da65b7ebac1c479b179dfaf7c059cd0b929b4673e51084  rustc-hash-2.1.1.tar.gz
 91bdda3a4b5906963c8c0053ebb924b952dac3d50e66afee87a7abebf82141426b34dce7e1947fe18c54dedd33537792ec13a94504ff7ad890243507d57fdc88  23575.patch
 ce1887fb7d425b94c375a0547bee40c308809c01f5ce1bcddabcc69a7fcb445efb9d5f5c7bac49b2778ab40687c7bce204d278b0bf028d124c75e59083107fba  riscv64-tls.patch
-43cacf0ef73fd9e1997b815c09a70555a64ebdbea74615edd01d1485c6213e372ccdd4666010f743d8a9d8964895ed92816dbe78701e7d2b04bc0313414d8d10  0001-panfrost-add-Mali-G78.patch
+a8d7960516d7a4ae5e24d1abf894af4bea630b503472e733800985e09b7529d0ac0e93c427e407e8b03dc16a42cbc58069ab4ad0df002afc11075a1185b65ef0  mesa-main-panfrost-g78.patch
+cf1db374ab8dfbcd69263e808936b825507a503fb1772a5e4884f6e732dc61af84254a57a236986e1d372c53b57fcb62cecf2afa4e27d6177ff006d7787f4f3b  mesa-main-panvk-v9.patch
 "
